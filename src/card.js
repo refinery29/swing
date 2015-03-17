@@ -54,7 +54,7 @@ Card = function Card (stack, targetElement) {
 
     mc = new Hammer.Manager(targetElement, {
         recognizers: [
-            [Hammer.Pan, {threshold: 2}]
+            [Hammer.Pan, {threshold: 2, direction: Hammer.DIRECTION_HORIZONTAL}]
         ]
     });
 
@@ -70,8 +70,8 @@ Card = function Card (stack, targetElement) {
 
     eventEmitter.on('_panmove', function (e) {
         var x = lastTranslate.x + e.deltaX,
-            y = lastTranslate.y + e.deltaY,
-            r = config.rotation(x, y, targetElement, config.maxRotation);
+            y = 0,
+            r = config.rotation(x, Math.abs(x), targetElement, config.maxRotation);
 
         config.transform(targetElement, x, y, r);
 
@@ -84,7 +84,7 @@ Card = function Card (stack, targetElement) {
 
     eventEmitter.on('_panend', function (e) {
         var x = lastTranslate.x + e.deltaX,
-            y = lastTranslate.y + e.deltaY;
+            y = 0;
 
         if (config.isThrowOut(x, targetElement, config.throwOutConfidence(x, targetElement))) {
             card.throwOut(x, y);
@@ -97,37 +97,9 @@ Card = function Card (stack, targetElement) {
         });
     });
 
-    // "mousedown" event fires late on touch enabled devices, thus listening
-    // to the touchstart event for touch enabled devices and mousedown otherwise.
-    if (_isTouchDevice()) {
-         targetElement.addEventListener('touchstart', function () {
-                eventEmitter.trigger('_panstart');
-        });
-
-        // Disable scrolling while dragging the element on the touch enabled devices.
-        // @see http://stackoverflow.com/a/12090055/368691
-        (function () {
-            var dragging;
-
-            targetElement.addEventListener('touchstart', function () {
-                dragging = true;
-            });
-
-            targetElement.addEventListener('touchend', function () {
-                dragging = false;
-            });
-
-            global.addEventListener('touchmove', function (e) {
-                if (dragging) {
-                    e.preventDefault();
-                }
-            });
-        } ());
-    } else {
-        targetElement.addEventListener('mousedown', function () {
-            eventEmitter.trigger('_panstart');
-        });
-    }
+    mc.on('panstart', function (e) {
+        eventEmitter.trigger('_panstart', e);
+    });
 
     mc.on('panmove', function (e) {
         eventEmitter.trigger('_panmove', e);
@@ -158,7 +130,7 @@ Card = function Card (stack, targetElement) {
                 x = rebound.MathUtil.mapValueInRange(value, 0, 1, lastThrow.fromX, throwOutDistance * lastThrow.direction),
                 y = lastThrow.fromY;
 
-            onSpringUpdate(x, y);    
+            onSpringUpdate(x, y);
         },
         onSpringAtRest: function () {
             eventEmitter.trigger('throwoutend', {
@@ -174,7 +146,7 @@ Card = function Card (stack, targetElement) {
      * @param {Number} y
      */
     onSpringUpdate = function (x, y) {
-        var r = config.rotation(x, y, targetElement, config.maxRotation);
+        var r = config.rotation(x, Math.abs(x), targetElement, config.maxRotation);
 
         lastTranslate.x = x;
         lastTranslate.y = y;
@@ -266,7 +238,7 @@ Card = function Card (stack, targetElement) {
 
 /**
  * Interprets stack.config() object. Sets default configuration.
- * 
+ *
  * @param {Object} config
  * @return {Object}
  */
@@ -274,7 +246,7 @@ Card.config = function (config) {
     config = config || {};
 
     config.isThrowOut = config.isThrowOut ? config.isThrowOut : Card.isThrowOut;
-    
+
     config.throwOutConfidence = config.throwOutConfidence ? config.throwOutConfidence : Card.throwOutConfidence;
 
     config.throwOutDistance = config.throwOutDistance ? config.throwOutDistance : Card.throwOutDistance;
@@ -292,7 +264,7 @@ Card.config = function (config) {
 /**
  * Invoked in the event of `dragmove` and every time the physics solver is triggered.
  * Uses CSS transform to translate element position and rotation.
- * 
+ *
  * @param {Number} x Horizontal offset from the startDrag.
  * @param {Number} y Vertical offset from the startDrag.
  * @return {null}
@@ -308,7 +280,7 @@ Card.transform = function (element, x, y, r) {
  *
  * Invoked in the event of mousedown.
  * Invoked when card is added to the stack.
- * 
+ *
  * @param {HTMLElement} element The target element.
  */
 Card.appendToParent = function (element) {
@@ -326,7 +298,7 @@ Card.appendToParent = function (element) {
  * Invoked in the event of dragmove.
  * Returns a value between 0 and 1 indicating the completeness of the throw out condition.
  * Ration of the absolute distance from the original card position and element width.
- * 
+ *
  * @param {Number} offset Distance from the dragStart.
  * @param {HTMLElement} element Element.
  * @return {Number}
@@ -339,7 +311,7 @@ Card.throwOutConfidence = function (offset, element) {
  * Invoked in the event of dragend.
  * Determines if element is being thrown out of the stack.
  * Element is considered to be thrown out when throwOutConfidence is equal to 1.
- * 
+ *
  * @param {Number} offset Distance from the dragStart.
  * @param {HTMLElement} element Element.
  * @param {Number} throwOutConfidence config.throwOutConfidence
@@ -353,7 +325,7 @@ Card.isThrowOut = function (offset, element, throwOutConfidence) {
  * Invoked when card is added to the stack.
  * The card is thrown to this offset from the stack.
  * The value is a random number between minThrowOutDistance and maxThrowOutDistance.
- * 
+ *
  * @return {Number}
  */
 Card.throwOutDistance = function (minThrowOutDistance, maxThrowOutDistance) {
@@ -363,7 +335,7 @@ Card.throwOutDistance = function (minThrowOutDistance, maxThrowOutDistance) {
 /**
  * Rotation is equal to the proportion of horizontal and vertical offset
  * times the maximumRotation constant.
- * 
+ *
  * @param {Number} x Horizontal offset from the startDrag.
  * @param {Number} y Vertical offset from the startDrag.
  * @param {HTMLElement} element Element.
@@ -392,3 +364,4 @@ Card.THROW_IN = 'in';
 Card.THROW_OUT = 'out';
 
 module.exports = Card;
+
